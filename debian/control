@@ -1,0 +1,150 @@
+Source: lxc
+Section: admin
+Priority: optional
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+Build-Depends: bash-completion,
+               debhelper (>= 10),
+               dh-apparmor,
+               docbook2x,
+               dpkg-dev (>= 1.16.1~) | hardening-wrapper,
+               libapparmor-dev (>= 2.8.96~2652-0ubuntu1),
+               libcap-dev,
+               libgnutls28-dev,
+               libpam0g-dev,
+               libseccomp-dev,
+               libselinux1-dev,
+               linux-libc-dev,
+               pkg-config
+Standards-Version: 4.5.0
+Homepage: https://linuxcontainers.org
+Vcs-Git: https://github.com/lxc/lxc-pkg-ubuntu
+Vcs-Browser: https://github.com/lxc/lxc-pkg-ubuntu
+Rules-Requires-Root: no
+
+Package: lxc
+Architecture: all
+Depends: lxc-utils (>= ${source:Version}), ${misc:Depends}
+Section: oldlibs
+Description: Transitional package - lxc -> lxc-utils
+ This is a transitional dummy package. It can safely be removed.
+ .
+ lxc is now replaced by lxc-utils.
+
+Package: lxc1
+Architecture: all
+Depends: lxc-utils (>= ${source:Version}), ${misc:Depends}
+Section: oldlibs
+Description: Transitional package - lxc1 -> lxc-utils
+ This is a transitional dummy package. It can safely be removed.
+ .
+ lxc1 is now replaced by lxc-utils.
+
+Package: lxc-dev
+Architecture: all
+Depends: liblxc-dev (>= ${source:Version}), ${misc:Depends}
+Section: oldlibs
+Description: Transitional package - lxc-dev -> liblxc-dev
+ This is a transitional dummy package. It can safely be removed.
+ .
+ lxc-dev is now replaced by liblxc-dev.
+
+Package: lxc-utils
+Architecture: linux-any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: adduser,
+         bridge-utils,
+         dnsmasq-base,
+         iptables,
+         liblxc1 (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends}
+Recommends: libpam-cgfs
+Suggests: btrfs-tools, lvm2, lxc-templates, lxctl
+Replaces: lxc1 (<< 2.1.1-0ubuntu2~)
+Breaks: lxc1 (<< 2.1.1-0ubuntu2~)
+Description: Linux Containers userspace tools
+ Containers are insulated areas inside a system, which have their own namespace
+ for filesystem, network, PID, IPC, CPU and memory allocation and which can be
+ created using the Control Group and Namespace features included in the Linux
+ kernel.
+ .
+ This package provides the lxc-* tools, which can be used to start a single
+ daemon in a container, or to boot an entire "containerized" system, and to
+ manage and debug your containers.
+
+Package: liblxc-common
+Architecture: linux-any
+Depends: liblxc1 (= ${binary:Version}),
+         ${lxc:Depends},
+         ${misc:Depends},
+         ${shlibs:Depends}
+Conflicts: lxc-common
+Replaces: lxc-common,
+          lxc-templates (<< 3.0.0~beta1-0ubuntu1~),
+          lxc-utils (<< 1:4.0.0-0ubuntu1~),
+          lxc1 (<< 3.0.0~beta2-0ubuntu2~)
+Breaks: lxc-templates (<< 3.0.0~beta1-0ubuntu1~),
+        lxc-utils (<< 1:4.0.0-0ubuntu1~),
+        lxc1 (<< 3.0.0~beta2-0ubuntu2~)
+Provides: lxc-common
+Description: Linux Containers userspace tools (common tools)
+ Containers are insulated areas inside a system, which have their own namespace
+ for filesystem, network, PID, IPC, CPU and memory allocation and which can be
+ created using the Control Group and Namespace features included in the Linux
+ kernel.
+ .
+ This package contains a few binaries and security profiles required by
+ all liblxc users.
+
+Package: liblxc-dev
+Section: libdevel
+Architecture: linux-any
+Depends: liblxc1 (= ${binary:Version}), ${misc:Depends}
+Replaces: lxc-dev (<< 2.1.1-0ubuntu2~)
+Breaks: lxc-dev (<< 2.1.1-0ubuntu2~)
+Description: Linux Containers userspace tools (development)
+ Containers are insulated areas inside a system, which have their own namespace
+ for filesystem, network, PID, IPC, CPU and memory allocation and which can be
+ created using the Control Group and Namespace features included in the Linux
+ kernel.
+ .
+ This package contains the development files.
+
+Package: liblxc1
+Architecture: linux-any
+Section: libs
+Pre-Depends: ${misc:Pre-Depends}
+Depends: cgroup-lite | systemd,
+         liblxc-common (= ${binary:Version}),
+         rsync,
+         ${misc:Depends},
+         ${shlibs:Depends}
+Recommends: lxcfs, uidmap
+Description: Linux Containers userspace tools (library)
+ Containers are insulated areas inside a system, which have their own namespace
+ for filesystem, network, PID, IPC, CPU and memory allocation and which can be
+ created using the Control Group and Namespace features included in the Linux
+ kernel.
+ .
+ This package contains the libraries.
+
+Package: libpam-cgfs
+Architecture: linux-any
+Pre-Depends: ${misc:Pre-Depends}
+Depends: libpam-runtime (>= 1.0.1-6),
+         ${lxcfs:Depends},
+         ${misc:Depends},
+         ${shlibs:Depends}
+Replaces: lxc-utils (<< 1:4.0.0-0ubuntu1~)
+Breaks: lxc-utils (<< 1:4.0.0-0ubuntu1~)
+Conflicts: libpam-cgm
+Description: PAM module for managing cgroups for LXC
+ Containers are insulated areas inside a system, which have their own namespace
+ for filesystem, network, PID, IPC, CPU and memory allocation and which can be
+ created using the Control Group and Namespace features included in the Linux
+ kernel.
+ .
+ This provides a Pluggable Authentication Module (PAM) to provide
+ logged-in users with a set of cgroups which they can administer.
+ This allows for instance unprivileged containers, and session
+ management using cgroup process tracking.

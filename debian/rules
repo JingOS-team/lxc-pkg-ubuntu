@@ -1,0 +1,96 @@
+#!/usr/bin/make -f
+export DEB_BUILD_HARDENING = 1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+include /usr/share/dpkg/default.mk
+
+DEB_DH_INSTALLINIT_ARGS = --upstart-only
+
+SHELL := sh -e
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+%:
+	dh ${@} --with autoreconf --with systemd
+
+override_dh_auto_configure:
+	dh_auto_configure -- --libdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH) \
+		--libexecdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH) \
+		--with-rootfs-path=\$${prefix}/lib/$(DEB_HOST_MULTIARCH)/lxc \
+		$(shell dpkg-buildflags --export=configure) \
+		--enable-doc --disable-rpath --with-distro=ubuntu --enable-pam
+
+override_dh_install:
+	if [ -x /usr/bin/dh_apparmor ]; then \
+		dh_apparmor -p liblxc-common --profile-name=usr.bin.lxc-start; \
+	fi
+
+	# libpam-cgfs
+	mkdir -p debian/tmp/usr/share/pam-configs/
+	cp debian/libpam-cgfs.pam debian/tmp/usr/share/pam-configs/cgfs
+
+	# cleanup .la files
+	find debian/tmp/ -type f -name \*.la -delete
+
+	# copy apport hook
+	mkdir -p debian/tmp/usr/share/apport/package-hooks
+	cp debian/lxc-utils.apport debian/tmp/usr/share/apport/package-hooks/source_lxc.py
+
+	# copy dnsmasq configuration
+	mkdir -p debian/tmp/etc/dnsmasq.d-available
+	cp debian/lxc-utils.dnsmasq debian/tmp/etc/dnsmasq.d-available/lxc
+
+	# move the examples
+	mv debian/tmp/usr/share/doc/lxc debian/tmp/usr/share/doc/liblxc-common
+
+	# move the bash completion profile
+	mkdir -p debian/tmp/usr/share/bash-completion/completions
+	if [ -f debian/tmp/etc/bash_completion.d/lxc ]; then \
+		mv debian/tmp/etc/bash_completion.d/lxc debian/tmp/usr/share/bash-completion/completions; \
+	fi
+	mv debian/tmp/usr/share/bash-completion/completions/lxc debian/tmp/usr/share/bash-completion/completions/lxc-utils
+	grep complete debian/tmp/usr/share/bash-completion/completions/lxc-utils | sed "s/.* //g" | while read cmd; do \
+		ln -s lxc-utils debian/tmp/usr/share/bash-completion/completions/$${cmd}; \
+	done
+
+	# move the special manpages
+	mkdir -p debian/libpam-cgfs/usr/share/man/man8/
+	mkdir -p debian/libpam-cgfs/usr/share/man/ja/man8/
+	mv debian/tmp/usr/share/man/man8/pam_cgfs.8 debian/libpam-cgfs/usr/share/man/man8/
+	mv debian/tmp/usr/share/man/ja/man8/pam_cgfs.8 debian/libpam-cgfs/usr/share/man/ja/man8/
+	rmdir debian/tmp/usr/share/man/man8 debian/tmp/usr/share/man/ja/man8
+
+	mkdir -p debian/liblxc-common/usr/share/man/man1/
+	mkdir -p debian/liblxc-common/usr/share/man/ja/man1/
+	mkdir -p debian/liblxc-common/usr/share/man/ko/man1/
+	mv debian/tmp/usr/share/man/man1/lxc-user-nic.1 debian/liblxc-common/usr/share/man/man1/
+	mv debian/tmp/usr/share/man/ja/man1/lxc-user-nic.1 debian/liblxc-common/usr/share/man/ja/man1/
+	mv debian/tmp/usr/share/man/ko/man1/lxc-user-nic.1 debian/liblxc-common/usr/share/man/ko/man1/
+
+	dh_install
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod u+s debian/liblxc-common/usr/lib/${DEB_HOST_MULTIARCH}/lxc/lxc-user-nic
+
+override_dh_builddeb:
+	# prevent system users from using setuid-root binaries under /var/lib/lxc
+	chmod 700 debian/lxc-utils/var/lib/lxc
+	chmod 700 debian/lxc-utils/var/cache/lxc
+	dh_builddeb
+
+override_dh_installinit:
+ifeq (,$(findstring $(DEB_DISTRIBUTION), trusty xenial))
+	# Disable upstart integration on artful+
+	cp debian/lxc-utils.maintscript.in debian/lxc-utils.maintscript
+	rm -f debian/lxc-utils/etc/init/*.conf
+else
+	cp debian/lxc-utils/etc/init/lxc.conf debian/lxc-utils.upstart
+	cp debian/lxc-utils/etc/init/lxc-instance.conf debian/lxc-utils.lxc-instance.upstart
+	cp debian/lxc-utils/etc/init/lxc-net.conf debian/lxc-utils.lxc-net.upstart
+	dh_installinit --no-start --no-restart-on-upgrade --name=lxc-instance
+endif
+	dh_installinit --no-restart-on-upgrade --name=lxc
+	dh_installinit --no-restart-on-upgrade --name=lxc-net
+
+override_dh_systemd_start:
+	dh_systemd_start --no-restart-on-upgrade

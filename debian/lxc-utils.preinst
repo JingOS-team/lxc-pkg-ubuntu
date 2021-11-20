@@ -1,0 +1,75 @@
+#!/bin/sh
+
+set -e
+
+migrate_auto()
+{
+    echo "Migrating /etc/lxc/auto to lxc.auto.start config flag"
+    for container in /etc/lxc/auto/*; do
+        [ "$container" = "/etc/lxc/auto/*" ] && continue
+
+        if [ ! -L "$container" ]; then
+            echo "$container isn't a symlink, skipping."
+        fi
+
+        if [ -d "$container" ] && [ -e "$container/config" ]; then
+            echo " - Marking $container/config as auto-started"
+            echo "" >> $container/config
+            echo "# Added by lxc postinst, migration of autostart flag" >> $container/config
+            echo "lxc.start.auto = 1" >> $container/config
+        fi
+
+        if [ -f "$container" ]; then
+            echo " - Marking $container as auto-started"
+            echo "" >> $container
+            echo "# Added by lxc postinst, migration of autostart flag" >> $container
+            echo "lxc.start.auto = 1" >> $container
+        fi
+
+        rm $container
+    done
+
+    # Try to remove /etc/lxc/auto (but ignore failure if non-empty)
+    rmdir /etc/lxc/auto/ >/dev/null 2>&1 || true
+}
+
+case "${1}" in
+    install|upgrade)
+        if [ -d /etc/lxc/auto ]; then
+            migrate_auto
+        fi
+
+        if [ ! -f /etc/lxc/lxc-usernet ]; then
+            mkdir -p /etc/lxc/
+            echo "# USERNAME TYPE BRIDGE COUNT" > /etc/lxc/lxc-usernet
+        fi
+
+        # If we have the stock preinstalled /etc/default/lxc-net, then
+        # remove it so that lxc-net can recreate on startup.
+        if dpkg --compare-versions "$2" eq "1.1.4-0ubuntu1"; then
+            if [ -f /etc/default/lxc-net ]; then
+                sum="$(md5sum /etc/default/lxc-net | awk '{ print $1 }')"
+                if [ "$sum" = e3f08a54cbdd4ebff86207417f366e6e ]; then
+                    found=0; for f in  /sys/class/net/lxcbr0/lower*; do [ -d "$f" ] && found=$(($found+1)); done
+                    if [ $found -eq 0 ]; then
+                        invoke-rc.d lxc-net stop
+                    fi
+                    rm -f /etc/default/lxc-net
+                fi
+            else
+                echo "# written on upgrade from 1.1.4-0ubuntu1." > /etc/default/lxc-net
+                echo "USE_LXC_BRIDGE=false" >> /etc/default/lxc-net
+            fi
+        fi
+        ;;
+    abort-upgrade)
+        ;;
+    *)
+        echo "preinst called with unknown argument (${1})"
+        exit 1
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
